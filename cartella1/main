@@ -1,0 +1,99 @@
+# Load required libraries
+library(dplyr)
+library(readr)
+library(lubridate)
+
+# Set working directory
+setwd("path/to/your/csvs")
+
+#------------------------------
+# 1. Load Raw Data
+#------------------------------
+purchase_requests <- read_csv("purchase_requests.csv")
+purchase_orders <- read_csv("purchase_orders.csv")
+invoices <- read_csv("invoices.csv")
+suppliers <- read_csv("suppliers.csv")
+contracts <- read_csv("contracts.csv")
+
+#------------------------------
+# 2. Standardize Columns
+#------------------------------
+# Purchase Requests
+pr_events <- purchase_requests %>%
+  rename(
+    CASE_ID = PR_Number,
+    RESOURCE = Requester,
+    END_DATE = Request_Date,
+    ACTIVITY = PR_Status,
+    AMOUNT = Amount,
+    SUPPLIER = Supplier_Name
+  ) %>%
+  mutate(ACTIVITY = paste("Purchase Request -", ACTIVITY),
+         END_DATE = ymd_hms(END_DATE))
+
+# Purchase Orders
+po_events <- purchase_orders %>%
+  rename(
+    CASE_ID = PO_Number,
+    RESOURCE = Approver,
+    END_DATE = Approval_Date,
+    ACTIVITY = PO_Status,
+    AMOUNT = Amount,
+    SUPPLIER = Supplier_Name
+  ) %>%
+  mutate(ACTIVITY = paste("Purchase Order -", ACTIVITY),
+         END_DATE = ymd_hms(END_DATE))
+
+# Invoices
+invoice_events <- invoices %>%
+  rename(
+    CASE_ID = Invoice_Number,
+    RESOURCE = Approver,
+    END_DATE = Approval_Date,
+    ACTIVITY = Invoice_Status,
+    AMOUNT = Amount,
+    SUPPLIER = Supplier_Name
+  ) %>%
+  mutate(ACTIVITY = paste("Invoice -", ACTIVITY),
+         END_DATE = ymd_hms(END_DATE))
+
+# Suppliers (optional)
+supplier_events <- suppliers %>%
+  rename(
+    CASE_ID = Supplier_ID,
+    RESOURCE = Account_Manager,
+    END_DATE = Registration_Date,
+    ACTIVITY = Supplier_Status,
+    SUPPLIER = Supplier_Name
+  ) %>%
+  mutate(ACTIVITY = paste("Supplier -", ACTIVITY),
+         END_DATE = ymd_hms(END_DATE))
+
+# Contracts (optional)
+contract_events <- contracts %>%
+  rename(
+    CASE_ID = Contract_ID,
+    RESOURCE = Owner,
+    END_DATE = Start_Date,
+    ACTIVITY = Contract_Status,
+    SUPPLIER = Supplier_Name
+  ) %>%
+  mutate(ACTIVITY = paste("Contract -", ACTIVITY),
+         END_DATE = ymd_hms(END_DATE))
+
+#------------------------------
+# 3. Combine All Events
+#------------------------------
+total_event_log <- bind_rows(
+  pr_events,
+  po_events,
+  invoice_events,
+  supplier_events,
+  contract_events
+) %>%
+  arrange(CASE_ID, END_DATE)  # Ensure chronological order
+
+#------------------------------
+# 4. Export Total Event Log
+#------------------------------
+write_csv(total_event_log, "p2p_total_event_log.csv")
