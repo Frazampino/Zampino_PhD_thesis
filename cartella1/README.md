@@ -6,15 +6,22 @@ This R script generates **Procurement-to-Pay (P2P) event logs** from raw enterpr
 The goal is to provide a clean, anonymized, and consistent dataset reflecting the P2P lifecycle: **from purchase request to payment**.
 
 ---
-## Requirements
+## Pre-Experimental Setup
 
-- R ≥ 4.2  
-- KNIME Analytics Platform ≥ 5.1  
-- Required R packages: `tidyverse`, `lubridate`, `readr`, `dplyr`, `stringr`  
-- Optional: Docker or ReproZip for platform-independent execution
+Before running the Procurement-to-Pay (P2P) data preparation pipeline, ensure the following setup is completed:
 
----
+### 1. System Requirements
+- **Operating System:** Windows 10 / 11, macOS 12+, or Linux (Ubuntu 20.04+ recommended)
+- **R:** Version 4.2 or higher
+- **KNIME Analytics Platform:** Version 5.1 or higher
+- **Memory:** Minimum 8 GB RAM (16 GB recommended for large datasets)
+- **Storage:** At least 5 GB free space for raw and processed data
 
+### 2. Install R Packages
+Install the required R packages using the following commands:
+
+```r
+install.packages(c("tidyverse", "lubridate", "readr", "dplyr", "stringr"
 ## Reproducibility Protocol
 
 Follow these steps to reproduce the P2P event log:
