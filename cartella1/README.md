@@ -20,7 +20,7 @@ Before running the Procurement-to-Pay (P2P) data preparation pipeline, ensure th
 ### 2. Install R Packages
 Install the required R packages using the following commands:
 
-```r
+r
 install.packages(c("tidyverse", "lubridate", "readr", "dplyr", "stringr"
 ## Reproducibility Protocol
 
