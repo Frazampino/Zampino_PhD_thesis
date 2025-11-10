@@ -6,24 +6,41 @@ This R script generates **Procurement-to-Pay (P2P) event logs** from raw enterpr
 The goal is to provide a clean, anonymized, and consistent dataset reflecting the P2P lifecycle: **from purchase request to payment**.
 
 ---
+## Requirements
 
-## Features
-- Reads raw CSV files from a company’s procurement system.  
-- Renames datasets and columns using **standard P2P terminology**.  
-- Creates uniform event logs with the following columns:
-  - `CASE_ID` – Unique transaction identifier (e.g., PR number, PO number).  
-  - `RESOURCE` – Person or system responsible for the event.  
-  - `END_DATE` – Timestamp of the activity.  
-  - `ACTIVITY` – Activity name (e.g., “Create Purchase Order”, “Invoice Approved”).  
-  - `TYPE` – Optional activity type or category.  
-- Optionally anonymizes sensitive information (suppliers, internal codes).  
-- Saves final CSV files ready for process mining tools like **Celonis**, **Disco**, or **ProM**.
+- R ≥ 4.2  
+- KNIME Analytics Platform ≥ 5.1  
+- Required R packages: `tidyverse`, `lubridate`, `readr`, `dplyr`, `stringr`  
+- Optional: Docker or ReproZip for platform-independent execution
 
 ---
 
-## Requirements
-- **R** >= 4.0  
-- `digest` package for anonymization:  
+## Reproducibility Protocol
 
-```r
-install.packages("digest")
+Follow these steps to reproduce the P2P event log:
+
+1. **Install dependencies**: Install all required R packages and KNIME extensions.
+2. **Import raw ERP data**: Place raw CSV files in `data/raw/` and run `01_import.R`.
+3. **Standardize formats**: Execute `02_transform.R` to clean and harmonize column names, data types, and activity labels.
+4. **Handle missing values**: Run `03_impute.R` to fill missing dates and amounts, and impute end dates for open cases.
+5. **Remove duplicates**: Run `04_deduplicate.R` to remove duplicated entries and ensure unique case identifiers.
+6. **Export final logs**: Execute `05_export.R` to generate fully standardized, pseudonymized event logs in `data/final/`.
+7. **Optional visual inspection**: Open `workflow.knwf` in KNIME to validate transformations, inspect quality metrics, and visualize process paths.
+
+Following this protocol will produce:
+
+- Fully structured, chronologically ordered, pseudonymized P2P event logs  
+- Quantitative data quality metrics (completeness, consistency, accuracy, reliability)  
+
+---
+
+## Data Privacy
+
+All sensitive information has been pseudonymized. The mapping between original and anonymized identifiers is maintained internally but **not included** in the repository to protect privacy.
+
+---
+
+## Versioning and Portability
+
+- All scripts and data are versioned using Git.  
+- The repository is licensed under **CC BY 4.0** for reuse and adaptation.  
