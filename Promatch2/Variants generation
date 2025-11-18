@@ -3,11 +3,82 @@ import random
 import os
 from pm4py.objects.petri.importer import importer as pnml_importer
 from pm4py.objects.petri.exporter import exporter as pnml_exporter
+from pm4py.objects.petri.petrinet import PetriNet
+
+# ---- RIPRODUCIBILITÀ ----
+SEED = 42
+random.seed(SEED)
 
 models = [
     "birthCertificate_p31.pnml",
     "birthCertificate_p32.pnml",
 ]
+
+def add_task_insertion(net):
+    """
+    Inserisce una nuova transizione tra un arco esistente:
+    p1 -> t -> p2 diventa p1 -> t_new -> t -> p2
+    """
+    if not net.transitions or not net.places:
+        return
+
+    # scegli transizione target
+    t = random.choice(list(net.transitions))
+
+    # trova un posto in input e uno in output
+    preset = list(t.in_arcs)
+    postset = list(t.out_arcs)
+
+    if not preset or not postset:
+        return
+
+    p_in = preset[0].source
+    p_out = postset[0].target
+
+    # crea nuova transizione
+    t_new = PetriNet.Transition(f"{t.name}_inserted", f"{t.label}_inserted" if t.label else None)
+    net.transitions.add(t_new)
+
+    # crea un nuovo posto intermedio
+    p_new = PetriNet.Place(f"p_inserted_{random.randint(0,999)}")
+    net.places.add(p_new)
+
+    # ricollega gli archi:
+    # rimuovi arco p_in -> t
+    net.arcs.remove(preset[0])
+
+    # aggiungi: p_in -> t_new -> p_new -> t -> p_out
+    net.add_arc(PetriNet.Arc(p_in, t_new))
+    net.add_arc(PetriNet.Arc(t_new, p_new))
+    net.add_arc(PetriNet.Arc(p_new, t))
+
+def add_loop(net):
+    """
+    Aggiunge un loop sulla transizione: t -> p_loop -> t
+    """
+    t = random.choice(list(net.transitions))
+
+    # crea posto del loop
+    p_loop = PetriNet.Place(f"{t.name}_loop_place")
+    net.places.add(p_loop)
+
+    # aggiungi archi per il loop
+    net.add_arc(PetriNet.Arc(t, p_loop))
+    net.add_arc(PetriNet.Arc(p_loop, t))
+
+
+def rename_transition(net):
+    """
+    Rinomina una transizione casuale aggiungendo un suffisso.
+    """
+    t = random.choice(list(net.transitions))
+    if t.name:
+        t.name = t.name + "_renamed"
+    else:
+        t.name = "renamed_task"
+
+
+# ---- MAIN VARIATION PIPELINE ----
 
 for model_file in models:
     if not os.path.exists(model_file):
@@ -17,23 +88,12 @@ for model_file in models:
     net, im, fm = pnml_importer.apply(model_file, variant=pnml_importer.Variants.PNML)
     net_var = copy.deepcopy(net)
 
-    # --- Rinominazione casuale ---
-    trans_to_rename = random.choice(list(net_var.transitions))
-    if trans_to_rename.name:
-        trans_to_rename.name = trans_to_rename.name + "_renamed"
+    # ---- Applicazione modifiche strutturali ----
+    rename_transition(net_var)
+    add_task_insertion(net_var)
+    add_loop(net_var)
 
-    # --- Task insertion (duplica una transizione esistente) ---
-    trans_to_duplicate = random.choice(list(net_var.transitions))
-    new_name = (trans_to_duplicate.name or "Task") + "_dup"
-    # crea copia simulata rinominando
-    trans_to_duplicate.name = new_name  # questa è una semplificazione
-
-    # --- Loop addition ---
-    last_trans = list(net_var.transitions)[-1]
-    place_for_loop = random.choice(list(net_var.places))
-    # per simulare un loop, puoi aggiungere un arco concatenando transizione → posto → transizione
-    # PM4Py permette solo manipolazioni sugli archi già esistenti nel net
-
-    variant_file = model_file.replace(".pnml", "_var.pnml")
-    pnml_exporter.apply(net_var, im, variant_file, variant=pnml_exporter.Variants.PNML)
-    print(f"Variante generata: {variant_file}")
+    # ---- Salvataggio ----
+    output_file = model_file.replace(".pnml", f"_var_seed{SEED}.pnml")
+    pnml_exporter.apply(net_var, im, output_file, variant=pnml_exporter.Variants.PNML)
+    print(f"Variante generata: {output_file}")
