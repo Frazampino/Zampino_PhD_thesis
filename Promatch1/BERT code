@@ -1,1 +1,198 @@
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
+import torch
+from transformers import BertTokenizer, BertModel
+from sklearn.metrics.pairwise import cosine_similarity
 
+def parse_bpmn_element_to_xml(element, sequence_flows):
+    bpmn_element = ET.Element("Element")
+
+    if element.tag.endswith('startEvent'):
+        bpmn_element.set("type", "Start")
+    elif element.tag.endswith('endEvent'):
+        bpmn_element.set("type", "End")
+    elif element.tag.endswith('task'):
+        bpmn_element.set("type", "Task")
+        bpmn_element.set("name", element.attrib['name'])
+        bpmn_element.set("id", element.attrib['id'])
+    elif element.tag.endswith('exclusiveGateway'):
+        bpmn_element.set("type", "ExclusiveGateway")
+        outgoing_tasks = [flow for flow in sequence_flows if flow.attrib['sourceRef'] == element.attrib['id']]
+        for flow in outgoing_tasks:
+            task_element = ET.SubElement(bpmn_element, "Task")
+            task_element.set("id", flow.attrib['targetRef'])
+    elif element.tag.endswith('parallelGateway'):
+        bpmn_element.set("type", "ParallelGateway")
+        outgoing_tasks = [flow for flow in sequence_flows if flow.attrib['sourceRef'] == element.attrib['id']]
+        for flow in outgoing_tasks:
+            task_element = ET.SubElement(bpmn_element, "Task")
+            task_element.set("id", flow.attrib['targetRef'])
+    elif element.tag.endswith('inclusiveGateway'):
+        bpmn_element.set("type", "InclusiveGateway")
+        outgoing_tasks = [flow for flow in sequence_flows if flow.attrib['sourceRef'] == element.attrib['id']]
+        for flow in outgoing_tasks:
+            task_element = ET.SubElement(bpmn_element, "Task")
+            task_element.set("id", flow.attrib['targetRef'])
+    else:
+        return None
+
+    return bpmn_element
+
+def bpmn_to_xml(bpmn_file):
+    tree = ET.parse(bpmn_file)
+    root = tree.getroot()
+
+    bpmn_xml = ET.Element("Process")
+    namespace = {'bpmn': 'http://www.omg.org/spec/BPMN/20100524/MODEL'}
+
+    sequence_flows = root.findall('.//bpmn:sequenceFlow', namespace)
+
+    for element in root.iter():
+        parsed_element = parse_bpmn_element_to_xml(element, sequence_flows)
+        if parsed_element is not None:
+            bpmn_xml.append(parsed_element)
+
+    return minidom.parseString(ET.tostring(bpmn_xml, encoding='utf-8')).toprettyxml(indent="    ")
+
+model_name = 'bert-base-multilingual-cased'
+tokenizer = BertTokenizer.from_pretrained(model_name)
+model = BertModel.from_pretrained(model_name)
+
+def get_embedding(text):
+    inputs = tokenizer(text, return_tensors='pt', padding=True, truncation=True, max_length=512)
+    with torch.no_grad():
+        outputs = model(**inputs)
+    embeddings = outputs.last_hidden_state.mean(dim=1)  # Media degli embeddings di tutti i token
+    return embeddings
+
+def cosine_similarity_score(embedding1, embedding2):
+    similarity = cosine_similarity(embedding1.numpy(), embedding2.numpy())
+    return similarity[0][0]
+
+def calculate_similarity(text1, text2):
+    embedding1 = get_embedding(text1)
+    embedding2 = get_embedding(text2)
+    return cosine_similarity_score(embedding1, embedding2)
+
+def parse_bpmn(file_path):
+    tasks = []
+    lanes = []
+    gateways = []
+
+    tree = ET.parse(file_path)
+    root = tree.getroot()
+    namespaces = {'bpmn': 'http://www.omg.org/spec/BPMN/20100524/MODEL'}
+
+    for task in root.findall('.//bpmn:task', namespaces):
+        task_id = task.get('id')
+        task_name = task.get('name', task_id) 
+        tasks.append({"id": task_id, "name": task_name})
+
+    for lane in root.findall('.//bpmn:lane', namespaces):
+        lane_id = lane.get('id')
+        lane_name = lane.get('name', lane_id)  
+        lanes.append({"id": lane_id, "name": lane_name})
+
+    for gateway in root.findall('.//bpmn:exclusiveGateway', namespaces):
+        gateway_id = gateway.get('id')
+        gateway_name = gateway.get('name', gateway_id)
+        gateways.append({"id": gateway_id, "name": gateway_name})
+
+    for gateway in root.findall('.//bpmn:inclusiveGateway', namespaces):
+        gateway_id = gateway.get('id')
+        gateway_name = gateway.get('name', gateway_id)
+        gateways.append({"id": gateway_id, "name": gateway_name})
+
+    for gateway in root.findall('.//bpmn:parallelGateway', namespaces):
+        gateway_id = gateway.get('id')
+        gateway_name = gateway.get('name', gateway_id)
+        gateways.append({"id": gateway_id, "name": gateway_name})
+
+    return tasks, lanes, gateways
+
+def analyze_bpmn_with_mbert(tasks_bpmn1, tasks_bpmn2, lanes_bpmn1, lanes_bpmn2, gateways_bpmn1, gateways_bpmn2):
+    task_similarities = []
+    for task1 in tasks_bpmn1:
+        for task2 in tasks_bpmn2:
+            similarity = calculate_similarity(task1['name'], task2['name'])
+            if similarity > 0.7:  
+                task_similarities.append({
+                    "task1_id": task1['id'],
+                    "task1_name": task1['name'],
+                    "task2_id": task2['id'],
+                    "task2_name": task2['name'],
+                    "similarity": similarity
+                })
+    
+    lane_similarities = []
+    for lane1 in lanes_bpmn1:
+        for lane2 in lanes_bpmn2:
+            similarity = calculate_similarity(lane1['name'], lane2['name'])
+            if similarity > 0.7:  
+                lane_similarities.append({
+                    "lane1_id": lane1['id'],
+                    "lane1_name": lane1['name'],
+                    "lane2_id": lane2['id'],
+                    "lane2_name": lane2['name'],
+                    "similarity": similarity
+                })
+
+    gateway_similarities = []
+    for gateway1 in gateways_bpmn1:
+        for gateway2 in gateways_bpmn2:
+        # Usa il nome o l'ID se il nome è vuoto
+           name1 = gateway1['name'] if gateway1['name'] else gateway1['id']
+           name2 = gateway2['name'] if gateway2['name'] else gateway2['id']
+        
+           similarity = calculate_similarity(name1, name2)
+           if similarity > 0.7:  
+              gateway_similarities.append({
+                "gateway1_id": gateway1['id'],
+                "gateway1_name": gateway1['name'],
+                "gateway2_id": gateway2['id'],
+                "gateway2_name": gateway2['name'],
+                "similarity": similarity
+            })
+
+    global_similarity = calculate_similarity(
+        ' '.join([task['name'] for task in tasks_bpmn1]), 
+        ' '.join([task['name'] for task in tasks_bpmn2])
+    )
+
+    return {
+        "global_similarity": global_similarity,
+        "task_similarities": task_similarities,
+        "lane_similarities": lane_similarities,
+        "gateway_similarities": gateway_similarities
+    }
+
+def compare_bpmn_files(bpmn_file_1, bpmn_file_2):
+    print("Converting files to XML...")
+    process_1_xml = bpmn_to_xml(bpmn_file_1)
+    process_2_xml = bpmn_to_xml(bpmn_file_2)
+
+    print("Parsing BPMN files...")
+    tasks_bpmn1, lanes_bpmn1, gateways_bpmn1 = parse_bpmn(bpmn_file_1)
+    tasks_bpmn2, lanes_bpmn2, gateways_bpmn2 = parse_bpmn(bpmn_file_2)
+
+    print("Analyzing semantic similarity...")
+    result = analyze_bpmn_with_mbert(tasks_bpmn1, tasks_bpmn2, lanes_bpmn1, lanes_bpmn2, gateways_bpmn1, gateways_bpmn2)
+
+    print(f"Global Similarity: {result['global_similarity']:.4f}")
+    
+    print("\nTask Similarities:")
+    for similarity in result["task_similarities"]:
+        print(f"{similarity['task1_name']} <=> {similarity['task2_name']}: Similarity = {similarity['similarity']:.4f}")
+
+    print("\nLane Similarities:")
+    for similarity in result["lane_similarities"]:
+        print(f"{similarity['lane1_name']} <=> {similarity['lane2_name']}: Similarity = {similarity['similarity']:.4f}")
+
+    print("\nGateway Similarities:")
+    for similarity in result["gateway_similarities"]:
+        print(f"{similarity['gateway1_name'] or similarity['gateway1_id']} <=> {similarity['gateway2_name'] or similarity['gateway2_id']}: Similarity = {similarity['similarity']:.4f}")
+
+bpmn_file_1 = "Cologne.bpmn"  
+bpmn_file_2 = "Frankfurt.bpmn"  
+
+compare_bpmn_files(bpmn_file_1, bpmn_file_2)
