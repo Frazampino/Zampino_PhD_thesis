@@ -59,7 +59,6 @@ def compare_bpmn_files(file1_path, file2_path, output_dir=OUTPUT_DIR):
     os.makedirs(output_dir, exist_ok=True)
     name_1 = os.path.basename(file1_path)
     name_2 = os.path.basename(file2_path)
-
     tasks1 = extract_task_names(file1_path)
     tasks2 = extract_task_names(file2_path)
     if not tasks1 or not tasks2:
@@ -115,25 +114,4 @@ if __name__ == '__main__':
     elapsed = time.time() - start
     print(f"All done in {elapsed:.2f} s")
 PY
-
-
-      - name: Run compare script
-        run: python compare_bpmn.py
-        timeout-minutes: 30
-
-      - name: List results directory
-        run: |
-          ls -la ${{ env.OUTPUT_DIR }} || true
-          echo "---- head of sample outputs ----"
-          for f in ${{ env.OUTPUT_DIR }}/*; do
-            echo "FILE: $f"
-            head -n 40 "$f" || true
-            echo "----------"
-          done
-
-      - name: Upload results artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: bpmn-similarity-results
-          path: results/**
 
