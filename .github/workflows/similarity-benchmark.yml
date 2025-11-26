@@ -12,6 +12,7 @@ jobs:
       OLLAMA_MODEL: tinyllama
       OLLAMA_DEVICE: cpu
       OUTPUT_DIR: results
+      BPMN_PROMPT: ${{ secrets.BPMN_PROMPT }}
 
     steps:
       - name: Checkout repository
@@ -50,11 +51,12 @@ jobs:
           OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'tinyllama')
           OUTPUT_DIR = os.environ.get('OUTPUT_DIR', 'results')
 
-          # Legge il prompt dal file
-          with open('prompt.txt', 'r', encoding='utf-8') as f:
-              prompt = f.read()
-          
-          # definisci tutte le funzioni qui...
+          # Legge il prompt dalle GitHub secrets
+          prompt = os.environ.get('BPMN_PROMPT', '')
+          if not prompt:
+              raise ValueError('BPMN_PROMPT non è stato trovato nelle secrets')
+
+          # Qui puoi inserire tutte le tue funzioni e logica
           print('Script scritto correttamente')" > compare_bpmn.py
 
       - name: Ensure output dir exists
@@ -68,4 +70,3 @@ jobs:
         with:
           name: bpmn-similarity-results
           path: ${{ env.OUTPUT_DIR }}
-
