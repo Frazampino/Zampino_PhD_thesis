@@ -32,37 +32,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install ollama
 
-      - name: Create prompt file from Secret
-        run: echo "${{ secrets.BPMN_PROMPT }}" > prompt.txt
-        # QUI SI PRENDE IL PROMPT DAL SECRET BPMN_PROMPT
-
       - name: Write Python script
         run: |
-          cat > compare_bpmn.py <<'PY'
-import os
-import xml.etree.ElementTree as ET
-from itertools import combinations
-import csv
-import re
-import time
+          echo "import os
+          import xml.etree.ElementTree as ET
+          from itertools import combinations
+          import csv
+          import re
+          import time
+          try:
+              import ollama
+          except Exception as ex:
+              print('Errore import ollama:', ex)
+              raise
 
-try:
-    import ollama
-except Exception as ex:
-    print('Errore import ollama:', ex)
-    raise
+          os.environ.setdefault('OLLAMA_DEVICE', os.environ.get('OLLAMA_DEVICE', 'cpu'))
+          OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'tinyllama')
+          OUTPUT_DIR = os.environ.get('OUTPUT_DIR', 'results')
 
-os.environ.setdefault('OLLAMA_DEVICE', os.environ.get('OLLAMA_DEVICE', 'cpu'))
-OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'tinyllama')
-OUTPUT_DIR = os.environ.get('OUTPUT_DIR', 'results')
-
-# Legge il prompt dal file creato dal secret
-with open('prompt.txt', 'r', encoding='utf-8') as f:
-    prompt = f.read()
-
-# TODO: definisci qui tutte le funzioni del tuo script compare_bpmn.py
-print('Script scritto correttamente')
-PY
+          # Legge il prompt dal file
+          with open('prompt.txt', 'r', encoding='utf-8') as f:
+              prompt = f.read()
+          
+          # definisci tutte le funzioni qui...
+          print('Script scritto correttamente')" > compare_bpmn.py
 
       - name: Ensure output dir exists
         run: mkdir -p ${{ env.OUTPUT_DIR }}
