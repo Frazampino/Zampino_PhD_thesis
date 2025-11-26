@@ -1,54 +1,3 @@
-name: LLaMA Similarity Benchmark (Ollama + BPMN)
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
-
-permissions:
-  contents: read
-
-jobs:
-  run_bpmn_comparison:
-    runs-on: ubuntu-latest
-    env:
-      OLLAMA_MODEL: tinyllama
-      OLLAMA_DEVICE: cpu
-      OUTPUT_DIR: results
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y curl git build-essential
-
-      - name: Setup Ollama (CLI)
-        uses: ai-action/setup-ollama@v1
-
-      - name: Cache ~/.ollama to speed up model reuse
-        uses: actions/cache@v4
-        with:
-          path: ~/.ollama
-          key: ${{ runner.os }}-ollama-${{ env.OLLAMA_MODEL }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-ollama-${{ env.OLLAMA_MODEL }}-
-
-      - name: Install Python deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install ollama
-
-      - name: Create prompt file from Secret
-        run: echo "${{ secrets.BPMN_PROMPT }}" > prompt.txt
-
       - name: Create script file (compare_bpmn.py)
         run: |
           cat > compare_bpmn.py <<'PY'
@@ -127,13 +76,11 @@ def compare_bpmn_files(file1_path, file2_path, output_dir=OUTPUT_DIR):
             proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=600)
             content = proc.stdout
 
-        # salva output
         filename = f"{output_dir}/comparison_{name_1}_vs_{name_2}.txt"
         with open(filename, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"✅ Comparison saved: {filename}")
 
-        # salva CSV
         mappings = extract_mappings_from_response(content)
         csv_name = f"{output_dir}/initial_mapping_{name_1}_vs_{name_2}.csv"
         with open(csv_name, "w", newline="", encoding="utf-8") as csvfile:
@@ -169,17 +116,6 @@ if __name__ == '__main__':
     print(f"All done in {elapsed:.2f} s")
 PY
 
-      - name: Ensure output dir exists
-        run: mkdir -p ${{ env.OUTPUT_DIR }}
-
-      - name: (Optional) pre-warm / pull model to ~/.ollama
-        run: |
-          echo "Pulling/creating model (may take long) for $OLLAMA_MODEL ..."
-          ollama list | tee ollama_list.txt
-          if ! grep -q "${{ env.OLLAMA_MODEL }}" ollama_list.txt; then
-            ollama pull "${{ env.OLLAMA_MODEL }}" || true
-          fi
-        continue-on-error: true
 
       - name: Run compare script
         run: python compare_bpmn.py
