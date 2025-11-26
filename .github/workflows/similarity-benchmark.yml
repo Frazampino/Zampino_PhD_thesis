@@ -46,10 +46,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install ollama
 
+      - name: Create prompt file from Secret
+        run: echo "${{ secrets.BPMN_PROMPT }}" > prompt.txt
+
       - name: Create script file (compare_bpmn.py)
         run: |
           cat > compare_bpmn.py <<'PY'
-# Script Python per confronto BPMN usando Ollama
 import os
 import xml.etree.ElementTree as ET
 from itertools import combinations
@@ -66,6 +68,10 @@ except Exception as ex:
 os.environ.setdefault("OLLAMA_DEVICE", os.environ.get("OLLAMA_DEVICE", "cpu"))
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "tinyllama")
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "results")
+
+# Legge il prompt dal file
+with open("prompt.txt", "r", encoding="utf-8") as f:
+    prompt = f.read()
 
 def extract_task_names(file_path):
     try:
@@ -102,24 +108,14 @@ def extract_mappings_from_response(text):
 
 def compare_bpmn_files(file1_path, file2_path, output_dir=OUTPUT_DIR):
     os.makedirs(output_dir, exist_ok=True)
-
     name_1 = os.path.basename(file1_path)
     name_2 = os.path.basename(file2_path)
 
     tasks1 = extract_task_names(file1_path)
     tasks2 = extract_task_names(file2_path)
-
     if not tasks1 or not tasks2:
         print(f"Skipping comparison for {name_1} vs {name_2} due to missing tasks.")
         return
-
-    prompt = f"""BPMN Model 1: {name_1}
-{chr(10).join(tasks1)}
-
-BPMN Model 2: {name_2}
-{chr(10).join(tasks2)}
-
-Please produce mappings as specified."""
 
     try:
         try:
@@ -131,11 +127,13 @@ Please produce mappings as specified."""
             proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=600)
             content = proc.stdout
 
+        # salva output
         filename = f"{output_dir}/comparison_{name_1}_vs_{name_2}.txt"
         with open(filename, "w", encoding="utf-8") as f:
             f.write(content)
         print(f"✅ Comparison saved: {filename}")
 
+        # salva CSV
         mappings = extract_mappings_from_response(content)
         csv_name = f"{output_dir}/initial_mapping_{name_1}_vs_{name_2}.csv"
         with open(csv_name, "w", newline="", encoding="utf-8") as csvfile:
@@ -184,8 +182,7 @@ PY
         continue-on-error: true
 
       - name: Run compare script
-        run: |
-          python compare_bpmn.py
+        run: python compare_bpmn.py
         timeout-minutes: 30
 
       - name: List results directory
@@ -202,211 +199,5 @@ PY
         uses: actions/upload-artifact@v3
         with:
           name: bpmn-similarity-results
-          path: |
-            results/**
-name: LLaMA Similarity Benchmark (Ollama + BPMN)
+          path: results/**
 
-on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
-
-permissions:
-  contents: read
-
-jobs:
-  run_bpmn_comparison:
-    runs-on: ubuntu-latest
-    env:
-      OLLAMA_MODEL: tinyllama
-      OLLAMA_DEVICE: cpu
-      OUTPUT_DIR: results
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y curl git build-essential
-
-      - name: Setup Ollama (CLI)
-        uses: ai-action/setup-ollama@v1
-
-      - name: Cache ~/.ollama to speed up model reuse
-        uses: actions/cache@v4
-        with:
-          path: ~/.ollama
-          key: ${{ runner.os }}-ollama-${{ env.OLLAMA_MODEL }}-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-ollama-${{ env.OLLAMA_MODEL }}-
-
-      - name: Install Python deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install ollama
-
-      - name: Create script file (compare_bpmn.py)
-        run: |
-          cat > compare_bpmn.py <<'PY'
-# Script Python per confronto BPMN usando Ollama
-import os
-import xml.etree.ElementTree as ET
-from itertools import combinations
-import csv
-import re
-import time
-
-try:
-    import ollama
-except Exception as ex:
-    print("Errore import ollama:", ex)
-    raise
-
-os.environ.setdefault("OLLAMA_DEVICE", os.environ.get("OLLAMA_DEVICE", "cpu"))
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "tinyllama")
-OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "results")
-
-def extract_task_names(file_path):
-    try:
-        tree = ET.parse(file_path)
-        root = tree.getroot()
-        ns = {'bpmn': 'http://www.omg.org/spec/BPMN/20100524/MODEL'}
-        task_names = []
-        for task_type in ['task', 'userTask', 'manualTask', 'serviceTask', 'scriptTask',
-                          'businessRuleTask', 'sendTask', 'receiveTask', 'callActivity']:
-            for task in root.findall(f".//bpmn:{task_type}", ns):
-                name = task.attrib.get('name')
-                if name:
-                    task_names.append(name)
-        return task_names
-    except ET.ParseError as e:
-        print(f"Errore parsing BPMN file {file_path}: {e}")
-        return []
-    except FileNotFoundError:
-        print(f"File non trovato: {file_path}")
-        return []
-
-def extract_mappings_from_response(text):
-    pattern = r'"(.+?)"\s*->\s*"(.+?)"\s*\[(VB|MC|HR),\s*similarity:\s*([0-9.]+)\]'
-    matches = re.findall(pattern, text)
-    mappings = []
-    for a, b, category, sim in matches:
-        mappings.append({
-            "task_model_1": a,
-            "task_model_2": b,
-            "similarity": sim,
-            "category": category,
-        })
-    return mappings
-
-def compare_bpmn_files(file1_path, file2_path, output_dir=OUTPUT_DIR):
-    os.makedirs(output_dir, exist_ok=True)
-
-    name_1 = os.path.basename(file1_path)
-    name_2 = os.path.basename(file2_path)
-
-    tasks1 = extract_task_names(file1_path)
-    tasks2 = extract_task_names(file2_path)
-
-    if not tasks1 or not tasks2:
-        print(f"Skipping comparison for {name_1} vs {name_2} due to missing tasks.")
-        return
-
-    prompt = f"""BPMN Model 1: {name_1}
-{chr(10).join(tasks1)}
-
-BPMN Model 2: {name_2}
-{chr(10).join(tasks2)}
-
-Please produce mappings as specified."""
-
-    try:
-        try:
-            response = ollama.chat(model=OLLAMA_MODEL, messages=[{'role': 'user', 'content': prompt}])
-            content = response['message']['content']
-        except Exception:
-            import subprocess, shlex
-            cmd = f"ollama run {shlex.quote(OLLAMA_MODEL)} \"{prompt.replace('\"', '\\\"')}\""
-            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=600)
-            content = proc.stdout
-
-        filename = f"{output_dir}/comparison_{name_1}_vs_{name_2}.txt"
-        with open(filename, "w", encoding="utf-8") as f:
-            f.write(content)
-        print(f"✅ Comparison saved: {filename}")
-
-        mappings = extract_mappings_from_response(content)
-        csv_name = f"{output_dir}/initial_mapping_{name_1}_vs_{name_2}.csv"
-        with open(csv_name, "w", newline="", encoding="utf-8") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=["task_model_1", "task_model_2", "similarity", "category"])
-            writer.writeheader()
-            writer.writerows(mappings)
-        print(f"📄 Initial mapping CSV saved: {csv_name}")
-
-    except Exception as e:
-        print(f"Errore durante la comparazione {name_1} vs {name_2}: {e}")
-
-def batch_compare_bpmn_files(bpmn_files, batch_size=2):
-    for i in range(0, len(bpmn_files), batch_size):
-        batch = bpmn_files[i:i+batch_size]
-        for file1, file2 in combinations(batch, 2):
-            compare_bpmn_files(file1, file2)
-
-if __name__ == '__main__':
-    bpmn_files = [
-        "Cologne.bpmn",
-        "Frankfurt.bpmn",
-        "IIS_Erlangen.bpmn",
-        "Fu_Berlin.bpmn",
-        "Hohenheim.bpmn",
-        "Potsdam.bpmn",
-        "Muenster.bpmn",
-        "Tu_Munich.bpmn",
-        "Wuerzburg.bpmn"
-    ]
-    start = time.time()
-    batch_compare_bpmn_files(bpmn_files, batch_size=2)
-    elapsed = time.time() - start
-    print(f"All done in {elapsed:.2f} s")
-PY
-
-      - name: Ensure output dir exists
-        run: mkdir -p ${{ env.OUTPUT_DIR }}
-
-      - name: (Optional) pre-warm / pull model to ~/.ollama
-        run: |
-          echo "Pulling/creating model (may take long) for $OLLAMA_MODEL ..."
-          ollama list | tee ollama_list.txt
-          if ! grep -q "${{ env.OLLAMA_MODEL }}" ollama_list.txt; then
-            ollama pull "${{ env.OLLAMA_MODEL }}" || true
-          fi
-        continue-on-error: true
-
-      - name: Run compare script
-        run: |
-          python compare_bpmn.py
-        timeout-minutes: 30
-
-      - name: List results directory
-        run: |
-          ls -la ${{ env.OUTPUT_DIR }} || true
-          echo "---- head of sample outputs ----"
-          for f in ${{ env.OUTPUT_DIR }}/*; do
-            echo "FILE: $f"
-            head -n 40 "$f" || true
-            echo "----------"
-          done
-
-      - name: Upload results artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: bpmn-similarity-results
-          path: |
-            results/**
