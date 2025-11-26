@@ -1,0 +1,19 @@
+# Core packages for BPMN / Petri Net analysis
+pm4py==2.3.11
+networkx==3.1
+numpy==1.26.1
+pandas==2.1.1
+matplotlib==3.8.0
+seaborn==0.12.3
+
+# XML parsing and utilities
+lxml==4.9.3
+
+# For interacting with Ollama / LLaMA models
+ollama==0.1.12  # verifica la versione compatibile col tuo setup
+
+# Optional: YAML parsing for GitHub Actions workflow automation
+pyyaml==6.0
+
+# For progress bars and logging
+tqdm==4.66.1
