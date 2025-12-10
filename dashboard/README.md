@@ -11,11 +11,22 @@ Its primary goal is to semantically and structurally compare business process mo
 
 ---
 
-## 🚀 Prerequisites
+##  Prerequisites
 Before running the dashboard, ensure you have installed:
 
 - **Python 3.8+**
 - **pip** (Python package installer)
+
+  ## Running the Dashboard
+
+To start the dashboard, you must run the Python script `similarity_dashboard.py` using **Streamlit**.
+
+###  Example: Windows PowerShell
+Assuming your file is in the Downloads folder:
+
+```powershell
+PS C:\Users\fraza\Downloads> python -m streamlit run similarity_dashboard.py
+
 
 ---
 
