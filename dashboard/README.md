@@ -3,12 +3,7 @@
 ## Project Description
 This dashboard is an interactive tool built with **Streamlit** for the analysis and visualization of **Process Model Matching (PMM)**.
 
-Its primary goal is to semantically and structurally compare business process models in **BPMN** format, identifying and classifying correspondences between activities (Tasks) according to academic methodology:
-
-- **1:1 (Exact)** – Direct correspondence between single activities.  
-- **1:N (Decomposition)** – One activity in model A corresponds to N more granular activities in model B.  
-- **N:M (Complex)** – A set of N activities in model A corresponds to a set of M activities in model B (functional alignment).
-
+Its primary goal is to semantically and structurally compare business process models in **BPMN** format, identifying and classifying correspondences between activities (Tasks).
 ---
 
 ##  Prerequisites
