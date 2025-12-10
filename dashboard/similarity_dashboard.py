@@ -109,8 +109,8 @@ def calculate_model_similarity(bpmn1, bpmn2):
 # =========================================================
 st.set_page_config(layout="wide", page_title="Model Similarity Dashboard")
 
-st.title("🔍 Model-to-Model Similarity Dashboard")
-st.caption("Analisi prototipale dei processi BPMN")
+st.title("🔍 Process Model Similarity Explorer")
+st.caption("Process analysis between BPMN")
 st.write("---")
 
 col_as_is, col_score, col_to_be = st.columns([4,2,4])
@@ -119,8 +119,8 @@ col_as_is, col_score, col_to_be = st.columns([4,2,4])
 # AS-IS MODEL
 # ---------------------------------------------------------
 with col_as_is:
-    st.subheader("📌 Modello As-Is")
-    file_as_is = st.file_uploader("Carica modello BPMN/XML", type=["bpmn", "xml"], key="as_is")
+    st.subheader("Model As-Is")
+    file_as_is = st.file_uploader("Model upload(BPMN/XML)", type=["bpmn", "xml"], key="as_is")
 
     content_as_is = file_as_is.getvalue().decode("utf-8") if file_as_is else None
     display_bpmn_js(content_as_is, "canvas_as_is")
@@ -130,8 +130,8 @@ with col_as_is:
 # TO-BE MODEL
 # ---------------------------------------------------------
 with col_to_be:
-    st.subheader("📌 Modello To-Be")
-    file_to_be = st.file_uploader("Carica modello BPMN/XML", type=["bpmn", "xml"], key="to_be")
+    st.subheader("Model To-Be")
+    file_to_be = st.file_uploader("Model upload(BPMN/XML)", type=["bpmn", "xml"], key="to_be")
 
     content_to_be = file_to_be.getvalue().decode("utf-8") if file_to_be else None
     display_bpmn_js(content_to_be, "canvas_to_be")
@@ -141,10 +141,10 @@ with col_to_be:
 # RESULTS COLUMN
 # ---------------------------------------------------------
 with col_score:
-    st.header("📊 Risultati Confronto")
+    st.header("Results comparison")
 
     if content_as_is and content_to_be:
-        st.info("Calcolando similarità...")
+        st.info("Measuring similarity...")
 
         conf_res, str_sim, sem_sim, beh_sim, total_score = calculate_model_similarity(
             content_as_is, content_to_be
@@ -152,27 +152,28 @@ with col_score:
 
         # --- Conformance ---
         st.markdown("### ✔️ Conformance Summary")
-        df_conf = pd.DataFrame(conf_res.items(), columns=["Metriche", "Valore"]).set_index("Metriche")
+        df_conf = pd.DataFrame(conf_res.items(), columns=["Metrics", "Value"]).set_index("Metrics")
         st.table(df_conf)
 
         # --- Similarità ---
-        st.markdown("### 📘 Similarity Metrics")
+        st.markdown("### Similarity Metrics")
         df_sim = pd.DataFrame({
-            "Metriche": ["Structural", "Semantic", "Behavioral"],
-            "Punteggio": [f"{str_sim:.2f}", f"{sem_sim:.2f}", f"{beh_sim:.2f}"]
-        }).set_index("Metriche")
+            "Metrics": ["Structural", "Semantic", "Behavioral"],
+            "Score": [f"{str_sim:.2f}", f"{sem_sim:.2f}", f"{beh_sim:.2f}"]
+        }).set_index("Metrics")
         st.table(df_sim)
 
         # --- Total Score ---
-        st.markdown("### ⭐ Punteggio Globale")
-        color = "green" if total_score > 0.7 else "orange"
+        st.markdown("### Global score")
+        color = "green" if total_score > 0.8 else "orange"
         st.markdown(
             f"<h2 style='color:{color}; text-align:center;'>{total_score*100:.0f}%</h2>",
             unsafe_allow_html=True
         )
 
     else:
-        st.info("Carica entrambi i modelli BPMN per ottenere il confronto.")
+        st.info("Upload both BPMN model to reach a similarity comparison.")
 
 st.write("---")
-st.markdown("💡 *Nota: Similarità semantica calcolata tramite SentenceTransformer; simil. strutturale basata su attività identiche.*")
+st.markdown("💡 *Nota: Similarity measured through SentenceTransformer.*")
+
