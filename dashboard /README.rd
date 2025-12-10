@@ -11,7 +11,7 @@ Its primary goal is to semantically and structurally compare business process mo
 
 ---
 
-## 🚀 Prerequisites
+## Prerequisites
 Before running the dashboard, ensure you have installed:
 
 - **Python 3.8+**
@@ -19,7 +19,7 @@ Before running the dashboard, ensure you have installed:
 
 ---
 
-## ⚙️ Installation
+## Installation
 
 ### Create the project directory
 ```bash
