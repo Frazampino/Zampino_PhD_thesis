@@ -15,7 +15,7 @@ Its primary goal is to semantically and structurally compare business process mo
 Before running the dashboard, ensure you have installed:
 
 - **Python 3.8+**
-- **pip** (Python package installer)
+
 
 ## Running the Dashboard
 
@@ -24,15 +24,17 @@ To start the dashboard, you must run the Python script `similarity_dashboard.py`
 ###  Example: Windows PowerShell
 Assuming your file is in the Downloads folder:
 
-```powershell
+'''powershell
 PS C:\Users\fraza\Downloads> python -m streamlit run similarity_dashboard.py
 
 
----
+## Semantic Similarity Model Used
 
-## ⚙️ Installation
+The dashboard computes semantic similarity using the **SentenceTransformer model `all-MiniLM-L6-v2`**.
 
-### Create the project directory
-```bash
-mkdir process-matching-app
-cd process-matching-app
+This lightweight model is fast, efficient, and well-suited for comparing short text labels such as BPMN activity names.
+
+Code reference:
+```python
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer('all-MiniLM-L6-v2')
