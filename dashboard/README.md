@@ -17,7 +17,7 @@ Before running the dashboard, ensure you have installed:
 - **Python 3.8+**
 - **pip** (Python package installer)
 
-  ## Running the Dashboard
+## Running the Dashboard
 
 To start the dashboard, you must run the Python script `similarity_dashboard.py` using **Streamlit**.
 
