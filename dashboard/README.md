@@ -1,4 +1,4 @@
-# Process Model Matching Dashboard
+# Process Model Similarity Dashboard
 
 ## Project Description
 This dashboard is an interactive tool built with **Streamlit** for the analysis and visualization of **Process Model Matching (PMM)**.
