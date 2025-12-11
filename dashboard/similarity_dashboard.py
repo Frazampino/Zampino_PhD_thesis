@@ -64,6 +64,19 @@ def extract_activities(bpmn_content):
 
 
 # =========================================================
+# BEHAVIORAL SIMILARITY – TAR (Transition Adjacency Relations)
+# =========================================================
+def compute_TAR_similarity(tasks1, tasks2):
+    # Set di coppie (A -> B) per ciascun modello
+    TAR1 = {(tasks1[i], tasks1[i+1]) for i in range(len(tasks1)-1)}
+    TAR2 = {(tasks2[i], tasks2[i+1]) for i in range(len(tasks2)-1)}
+
+    if TAR1 or TAR2:
+        return len(TAR1 & TAR2) / max(len(TAR1 | TAR2), 1)
+    return 0.0
+
+
+# =========================================================
 # SIMILARITY COMPUTATION
 # =========================================================
 model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -83,14 +96,13 @@ def calculate_model_similarity(bpmn1, bpmn2):
 
     # --- STRUCTURAL SIMILARITY ---
     set1, set2 = set(tasks1), set(tasks2)
-
     if set1 or set2:
         str_sim = len(set1 & set2) / max(len(set1 | set2), 1)
     else:
         str_sim = 0.0
 
-    # --- BEHAVIORAL SIMILARITY (PLACEHOLDER) ---
-    beh_sim = str_sim  # può essere migliorato con analisi dei flussi
+    # --- BEHAVIORAL SIMILARITY (TAR) ---
+    beh_sim = compute_TAR_similarity(tasks1, tasks2)
 
     # --- GLOBAL SCORE ---
     global_score = (sem_sim + str_sim + beh_sim) / 3
@@ -175,5 +187,5 @@ with col_score:
         st.info("Upload both BPMN model to reach a similarity comparison.")
 
 st.write("---")
-st.markdown("💡 *Nota: Similarity measured through SentenceTransformer.*")
+st.markdown("💡 *Nota: Similarity measured through SentenceTransformer and TAR Behavioral Similarity.*")
 
