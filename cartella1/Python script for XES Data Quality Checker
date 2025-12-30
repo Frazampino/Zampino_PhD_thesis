@@ -1,0 +1,51 @@
+import knime.scripting.io as knio
+import pandas as pd
+import numpy as np
+
+# --- 1. CARICAMENTO DATI ---
+# Trasformo la tabella di input KNIME in un DataFrame Pandas
+df = knio.input_tables[0].to_pandas()
+
+# --- 2. RECUPERO PARAMETRI (Variabili di flusso dai nodi Boolean Configuration) ---
+# Assicurati che i nomi nelle virgolette corrispondano a quelli dei tuoi nodi nel workflow
+check_m = knio.flow_variables['check_missing_values']
+check_d = knio.flow_variables['check_duplicates']
+suggest = knio.flow_variables['suggest_corrections']
+
+# --- 3. INIZIALIZZAZIONE LOG ---
+# Questo log verrà visualizzato nel "Report analysis" (Porta 2)
+log = [f"Data Quality Analysis started on {len(df)} rows"]
+
+# --- 4. ANALISI E CORREZIONI ---
+
+# Gestione Valori Mancanti
+if check_m:
+    m_count = df.isna().sum().sum()
+    log.append(f"Total missing values detected: {m_count}")
+    if suggest and m_count > 0:
+        # Applica il forward fill per mantenere la coerenza del processo
+        df = df.ffill()
+        log.append("Action: Missing values filled using forward-fill (ffill).")
+
+# Gestione Duplicati (Logica selettiva per la Prof)
+if check_d:
+    # Identifica solo le righe identiche in OGNI colonna (Exact Duplicates)
+    # Gli eventi con lo stesso nome ma timestamp diverso NON sono considerati duplicati
+    d_count = df.duplicated().sum()
+    log.append(f"Exact duplicates detected (extraction errors): {d_count}")
+    
+    if suggest and d_count > 0:
+        # Rimuove solo i duplicati esatti, preservando la semantica degli eventi ripetuti
+        df = df.drop_duplicates(keep='first')
+        log.append(f"Action: Removed {d_count} exact duplicates. Legitimate repeated events were preserved.")
+    else:
+        log.append("Action: No duplicates removed (Legitimate repeated events preserved).")
+
+# --- 5. OUTPUT ---
+
+# PORTA 1: Dati puliti (destinati al Table to Event Log -> XES Writer)
+knio.output_tables[0] = knio.Table.from_pandas(df)
+
+# PORTA 2: Report di Qualità (destinato al CSV Writer 'Report analysis')
+log_df = pd.DataFrame(log, columns=["QC_Log_Report"])
+knio.output_tables[1] = knio.Table.from_pandas(log_df)
