@@ -5,6 +5,16 @@ This R script generates **Procurement-to-Pay (P2P) event logs** from raw enterpr
 
 The goal is to provide a clean, anonymized, and consistent dataset reflecting the P2P lifecycle: **from purchase request to payment**.
 
+
+## Technical Compliance & XES Standard
+A key feature of this pipeline is the formalization of data quality procedures through a custom **KNIME Component**: 
+🔗 **[XES Data Quality Checker](https://hub.knime.com/francescazampin/spaces/Public/Component~JSTJdzQ4rM_t7Nm1)**
+
+This component acts as a **technical validation gate**. Since standard Process Mining tools (like Disco, ProM or Apromore) and KNIME nodes (like *Table to Event Log*) require strict adherence to the XES standard, this tool ensures:
+
+* **Exact Deduplication:** Automatically removes technical merging errors (identical rows) while preserving legitimate repeated events to maintain process semantics.
+* **Structural Integrity:** Fixes missing case IDs and malformed timestamps that would otherwise cause the XES export to fail.
+* **Scientific Auditability:** Generates a dedicated quality report documenting every correction (e.g., handling of >8,200 missing values via forward-fill).
 ---
 ## Pre-Experimental Setup
 
