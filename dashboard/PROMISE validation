@@ -1,0 +1,227 @@
+import os
+import xml.etree.ElementTree as ET
+from itertools import combinations
+
+import numpy as np
+import pandas as pd
+import networkx as nx
+
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+from scipy import stats
+
+# ------------------------------------------------------------
+# EXPLICIT BPMN FILES (EDIT HERE ONLY)
+# ------------------------------------------------------------
+
+BPMN_MODELS = {
+    "Cologne": "Cologne.bpmn",
+    "Frankfurt": "Frankfurt.bpmn",
+    "FU_Berlin": "FU_Berlin.bpmn",
+    "Hohenheim": "Hohenheim.bpmn",
+    "IIS_Erlangen": "IIS_Erlangen.bpmn",
+    "Muenster": "Muenster.bpmn",
+    "Potsdam": "Potsdam.bpmn",
+    "TU_Munich": "TU_Munich.bpmn",
+    "Wuerzburg": "Wuerzburg.bpmn"
+}
+
+RESULTS_DIR = "results"
+os.makedirs(RESULTS_DIR, exist_ok=True)
+
+# ------------------------------------------------------------
+# BPMN PARSING
+# ------------------------------------------------------------
+
+def extract_bpmn_elements(bpmn_path):
+    tree = ET.parse(bpmn_path)
+    root = tree.getroot()
+
+    ns = "http://www.omg.org/spec/BPMN/20100524/MODEL"
+
+    data = {
+        "activities": [],
+        "gateways": [],
+        "events": [],
+        "sequence_flows": []
+    }
+
+    def it(tag):
+        return root.iter(f"{{{ns}}}{tag}")
+
+    for t in ["task", "userTask", "serviceTask", "manualTask", "scriptTask"]:
+        for el in it(t):
+            data["activities"].append({
+                "id": el.get("id"),
+                "name": el.get("name", "")
+            })
+
+    for g in ["exclusiveGateway", "parallelGateway", "inclusiveGateway"]:
+        for el in it(g):
+            data["gateways"].append({
+                "id": el.get("id"),
+                "type": g
+            })
+
+    for e in ["startEvent", "endEvent", "intermediateCatchEvent", "intermediateThrowEvent"]:
+        for el in it(e):
+            data["events"].append({
+                "id": el.get("id"),
+                "type": e
+            })
+
+    for f in it("sequenceFlow"):
+        data["sequence_flows"].append({
+            "source": f.get("sourceRef"),
+            "target": f.get("targetRef")
+        })
+
+    return data
+
+
+def load_models():
+    models = {}
+    for name, path in BPMN_MODELS.items():
+        models[name] = extract_bpmn_elements(path)
+        print(f"Loaded model: {name}")
+    return models
+
+
+# ------------------------------------------------------------
+# STRUCTURAL SIMILARITY
+# ------------------------------------------------------------
+
+def build_graph(m):
+    G = nx.DiGraph()
+    for a in m["activities"]:
+        G.add_node(a["id"])
+    for g in m["gateways"]:
+        G.add_node(g["id"])
+    for e in m["events"]:
+        G.add_node(e["id"])
+    for f in m["sequence_flows"]:
+        if f["source"] in G and f["target"] in G:
+            G.add_edge(f["source"], f["target"])
+    return G
+
+
+def structural_similarity(a, b):
+    Ga, Gb = build_graph(a), build_graph(b)
+    n_sim = min(Ga.number_of_nodes(), Gb.number_of_nodes()) / max(Ga.number_of_nodes(), Gb.number_of_nodes())
+    e_sim = min(Ga.number_of_edges(), Gb.number_of_edges()) / max(Ga.number_of_edges(), Gb.number_of_edges())
+
+    ga = set(g["type"] for g in a["gateways"])
+    gb = set(g["type"] for g in b["gateways"])
+    g_sim = len(ga & gb) / len(ga | gb) if ga | gb else 1.0
+
+    return round(0.4*n_sim + 0.4*e_sim + 0.2*g_sim, 3)
+
+
+# ------------------------------------------------------------
+# BEHAVIORAL SIMILARITY (TAR)
+# ------------------------------------------------------------
+
+def extract_tar(m):
+    adj = {}
+    for f in m["sequence_flows"]:
+        adj.setdefault(f["source"], []).append(f["target"])
+
+    acts = {a["id"]: a["name"] for a in m["activities"]}
+    tar = set()
+
+    def dfs(n, visited):
+        if n in visited:
+            return set()
+        visited.add(n)
+        res = set()
+        for nxt in adj.get(n, []):
+            if nxt in acts:
+                res.add(acts[nxt])
+            else:
+                res |= dfs(nxt, visited.copy())
+        return res
+
+    for aid, name in acts.items():
+        for nxt in dfs(aid, set()):
+            tar.add((name, nxt))
+
+    return tar
+
+
+def behavioral_similarity(a, b):
+    ta, tb = extract_tar(a), extract_tar(b)
+    if not ta and not tb:
+        return 1.0
+    return round(len(ta & tb) / len(ta | tb), 3)
+
+
+# ------------------------------------------------------------
+# SEMANTIC SIMILARITY
+# ------------------------------------------------------------
+
+semantic_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+def semantic_similarity(a, b):
+    la = [x["name"] for x in a["activities"] if x["name"]]
+    lb = [x["name"] for x in b["activities"] if x["name"]]
+    if not la or not lb:
+        return 0.0
+    ea = semantic_model.encode(la)
+    eb = semantic_model.encode(lb)
+    sim = cosine_similarity([ea.mean(axis=0)], [eb.mean(axis=0)])[0][0]
+    return round((sim + 1) / 2, 3)
+
+
+# ------------------------------------------------------------
+# MAIN EXECUTION
+# ------------------------------------------------------------
+
+models = load_models()
+pairs = list(combinations(models.keys(), 2))
+results = []
+
+for i, (m1, m2) in enumerate(pairs, 1):
+    s = structural_similarity(models[m1], models[m2])
+    b = behavioral_similarity(models[m1], models[m2])
+    se = semantic_similarity(models[m1], models[m2])
+
+    results.append({
+        "pair_id": f"P{i:02d}",
+        "model_a": m1,
+        "model_b": m2,
+        "structural": s,
+        "behavioral": b,
+        "semantic": se,
+        "mean": round((s+b+se)/3, 3),
+        "max_diff": round(max(s,b,se) - min(s,b,se), 3)
+    })
+
+df = pd.DataFrame(results)
+df.to_csv(f"{RESULTS_DIR}/raw_scores.csv", index=False)
+
+print("\nSaved raw_scores.csv")
+
+# ------------------------------------------------------------
+# STATISTICS
+# ------------------------------------------------------------
+
+corr = []
+dims = ["structural", "behavioral", "semantic"]
+
+for i in range(len(dims)):
+    for j in range(i+1, len(dims)):
+        r, p = stats.spearmanr(df[dims[i]], df[dims[j]])
+        corr.append({
+            "dimension_1": dims[i],
+            "dimension_2": dims[j],
+            "spearman_r": round(r, 3),
+            "p_value": round(p, 4)
+        })
+
+pd.DataFrame(corr).to_csv(f"{RESULTS_DIR}/correlation_analysis.csv", index=False)
+
+df[df["max_diff"] > 0.20].to_csv(f"{RESULTS_DIR}/conflict_analysis.csv", index=False)
+
+print("Saved correlation_analysis.csv")
+print("Saved conflict_analysis.csv")
+print("\nPROCESS COMPLETED")
