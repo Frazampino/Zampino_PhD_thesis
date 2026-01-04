@@ -149,10 +149,15 @@ def extract_tar(m):
 
 
 def behavioral_similarity(a, b):
-    ta, tb = extract_tar(a), extract_tar(b)
+    ta = extract_tar(a)
+    tb = extract_tar(b)
+
     if not ta and not tb:
         return 1.0
-    return round(len(ta & tb) / len(ta | tb), 3)
+    if not ta or not tb:
+        return 0.0
+
+    return round(min(len(ta), len(tb)) / max(len(ta), len(tb)), 3)
 
 
 # ------------------------------------------------------------
