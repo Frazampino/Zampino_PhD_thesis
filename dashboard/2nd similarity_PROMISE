@@ -1,0 +1,79 @@
+import itertools
+
+# =========================================================
+# STRUCTURAL METRICS
+# =========================================================
+
+def structural_overlap(tasks1, tasks2):
+    """Simple task set overlap (already in prototype)"""
+    set1, set2 = set(tasks1), set(tasks2)
+    return len(set1 & set2) / max(len(set1 | set2), 1)
+
+def tager_similarity(tasks1, tasks2):
+    """TAGER metric stub: compute graph edit similarity (not implemented)"""
+    # Placeholder: in pratica dovresti creare il grafo BPMN e calcolare similarity
+    # Restituisce un valore dummy per test
+    print("TAGER similarity: placeholder value")
+    return 0.0
+
+def weighted_ged(tasks1, tasks2):
+    """Weighted Graph Edit Distance metric stub"""
+    # Placeholder: richiede calcolo del GED tra grafi dei processi
+    print("Weighted GED: placeholder value")
+    return 0.0
+
+# =========================================================
+# SEMANTIC METRICS
+# =========================================================
+from sentence_transformers import SentenceTransformer, util
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+def semantic_similarity(tasks1, tasks2):
+    if tasks1 and tasks2:
+        emb1 = model.encode(tasks1, convert_to_tensor=True)
+        emb2 = model.encode(tasks2, convert_to_tensor=True)
+        return float(util.cos_sim(emb1, emb2).mean())
+    return 0.0
+
+# =========================================================
+# BEHAVIORAL METRICS
+# =========================================================
+
+def tar_similarity(tasks1, tasks2):
+    """Task-Adjacent Relations (already in prototype)"""
+    TAR1 = {(tasks1[i], tasks1[i+1]) for i in range(len(tasks1)-1)}
+    TAR2 = {(tasks2[i], tasks2[i+1]) for i in range(len(tasks2)-1)}
+    intersection = TAR1 & TAR2
+    union = TAR1 | TAR2
+    similarity = len(intersection) / max(len(union), 1)
+    return similarity, TAR1 - TAR2, TAR2 - TAR1
+
+def pes_similarity(tasks1, tasks2):
+    """Process Execution Similarity stub"""
+    # Placeholder: potrebbe includere pesi sulle transizioni o frequenze
+    print("PES similarity: placeholder value")
+    return 0.0
+
+def pts_similarity(tasks1, tasks2):
+    """Process Transition Similarity stub"""
+    # Placeholder: simile a TAR ma con pesi o probabilità sulle transizioni
+    print("PTS similarity: placeholder value")
+    return 0.0
+
+# =========================================================
+# EXAMPLE USAGE
+# =========================================================
+if __name__ == "__main__":
+    tasks_as_is = ["Start", "Task A", "Task B", "End"]
+    tasks_to_be = ["Start", "Task A", "Task C", "End"]
+
+    print("Structural overlap:", structural_overlap(tasks_as_is, tasks_to_be))
+    print("TAGER similarity:", tager_similarity(tasks_as_is, tasks_to_be))
+    print("Weighted GED:", weighted_ged(tasks_as_is, tasks_to_be))
+    print("Semantic similarity:", semantic_similarity(tasks_as_is, tasks_to_be))
+    tar_sim, tar_only_1, tar_only_2 = tar_similarity(tasks_as_is, tasks_to_be)
+    print("TAR similarity:", tar_sim)
+    print("Behavioral only in As-Is (TAR):", tar_only_1)
+    print("Behavioral only in To-Be (TAR):", tar_only_2)
+    print("PES similarity:", pes_similarity(tasks_as_is, tasks_to_be))
+    print("PTS similarity:", pts_similarity(tasks_as_is, tasks_to_be))
