@@ -3,7 +3,7 @@
 ## Project Description
 This dashboard is an interactive tool built with **Streamlit** for the analysis and visualization of **Process Model Matching (PMM)**.
 
-Its primary goal is to semantically and structurally compare business process models in **BPMN** format, identifying and classifying correspondences between activities (Tasks).
+Its primary goal is to semantically and structurally compare business process models in **BPMN** or **PetriNet** format, identifying and classifying correspondences between activities (Tasks).
 ---
 
 ##  Prerequisites
