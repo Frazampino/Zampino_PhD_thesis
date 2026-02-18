@@ -14,13 +14,13 @@ Before running the dashboard, ensure you have installed:
 
 ## Running the Dashboard
 
-To start the dashboard, you must run the Python script `similarity_dashboard.py` using **Streamlit**.
+To start the dashboard, you must run the Python script `promise_dashboard.py` using **Streamlit**.
 
 ###  Example: Windows PowerShell
 Assuming your file is in the Downloads folder:
 
 '''powershell
-PS C:\Users\fraza\Downloads> python -m streamlit run similarity_dashboard.py
+PS C:\Users\fraza\Downloads> python -m streamlit run promise_dashboard.py
 
 
 ## Semantic Similarity Model Used
